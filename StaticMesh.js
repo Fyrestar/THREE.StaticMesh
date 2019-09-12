@@ -59,7 +59,7 @@
 	const boundingBox = new THREE.Box3;
 	const matrix = new THREE.Matrix4;
 
-	THREE.StaticMesh = function( target, parent ) {
+	THREE.StaticMesh = function( source, parent ) {
 
 		this.id = id -- ; // THREE hides the Object3D id counter ¯\_(ツ)_/¯
 		this.index = 0;
@@ -74,9 +74,9 @@
 		this.parent = parent || null;
 		this.isChild = !!parent;
 
-		if ( target ) {
+		if ( source ) {
 
-			this.setTarget( target );
+			this.setSource( source );
 
 		}
 
@@ -135,7 +135,7 @@
 
 			} else {
 
-				target = target || this.target;
+				target = target || this.source;
 
 				let index = -1;
 				const self = this;
@@ -176,19 +176,19 @@
 
 		save: function() {
 
-			const target = this.target;
+			const source = this.source;
 			let index = -1;
 			const self = this;
 
 			// Apply transformation state
 
-			if ( target.matrixAutoUpdate !== true )
-				target.updateMatrix();
+			if ( source.matrixAutoUpdate !== true )
+				source.updateMatrix();
 
-			target.updateMatrixWorld( true );
+			source.updateMatrixWorld( true );
 
 
-			target.traverse( object => {
+			source.traverse( object => {
 
 				if ( index > -1 ) {
 
@@ -197,7 +197,7 @@
 					child.matrixWorld.copy( object.matrixWorld );
 
 
-					if ( !target.closure && child.geometry ) {
+					if ( !source.closure && child.geometry ) {
 
 						if ( !child.geometry.boundingSphere )
 							child.geometry.computeBoundingSphere();
@@ -221,7 +221,7 @@
 
 			});
 
-			this.matrixWorld.copy( target.matrixWorld );
+			this.matrixWorld.copy( source.matrixWorld );
 
 
 			// Re-encapsulate
@@ -232,7 +232,7 @@
 
 			// Cache bounding sphere
 
-			const boundingSphere = target.boundingSphere || this.geometry.boundingSphere;
+			const boundingSphere = source.boundingSphere || this.geometry.boundingSphere;
 
 			this.radius = this.matrixWorld.getMaxScaleOnAxis() * boundingSphere.radius;
 
@@ -247,23 +247,23 @@
 
 		encapsulate: function() {
 
-			const target = this.target;
-			const sphere = target.boundingSphere || new THREE.Sphere;
+			const source = this.source;
+			const sphere = source.boundingSphere || new THREE.Sphere;
 
 
-			target.updateMatrix();
+			source.updateMatrix();
 
-			matrix.copy( target.matrix );
+			matrix.copy( source.matrix );
 
 			{
 
-				target.position.set( 0, 0, 0 );
-				target.scale.set( 1, 1, 1 );
-				target.quaternion.set( 0, 0, 0, 1 );
+				source.position.set( 0, 0, 0 );
+				source.scale.set( 1, 1, 1 );
+				source.quaternion.set( 0, 0, 0, 1 );
 
-				target.updateMatrixWorld( true );
+				source.updateMatrixWorld( true );
 
-				boundingBox.expandByObject( target );
+				boundingBox.expandByObject( source );
 				boundingBox.max.divideScalar( 2 );
 
 				sphere.center.copy( boundingBox.max );
@@ -271,45 +271,45 @@
 
 			}
 
-			matrix.decompose( target.position, target.quaternion, target.scale );
+			matrix.decompose( source.position, source.quaternion, source.scale );
 
-			target.updateMatrixWorld( true );
+			source.updateMatrixWorld( true );
 
 
-			target.boundingSphere = sphere;
+			source.boundingSphere = sphere;
 
 		},
 
-		setTarget: function( target ) {
+		setSource: function( source ) {
 
-			this.target = target;
-			this.geometry = target.geometry;
-			this.material = target.material;
+			this.source = source;
+			this.geometry = source.geometry;
+			this.material = source.material;
 
-			if ( target.used === undefined )
-				target.used = 0;
+			if ( source.used === undefined )
+				source.used = 0;
 
-			target.used ++ ;
+			source.used ++ ;
 
-			if ( target.isMesh ) {
+			if ( source.isMesh ) {
 
 				this.isMesh = true;
 				this.isSkinnedMesh = false;
 
-				this.drawMode = target.drawMode;
+				this.drawMode = source.drawMode;
 				this.updateMorphTargets();
 
 			}
 
-			if ( target.isSkinnedMesh ) {
+			if ( source.isSkinnedMesh ) {
 
 				this.isMesh = false;
 				this.isSkinnedMesh = true;
 
-				this.skeleton = target.skeleton;
-				this.bindMatrix = target.bindMatrix;
-				this.bindMatrixInverse = target.bindMatrixInverse;
-				this.updateMatrixWorld = target.updateMatrixWorld;
+				this.skeleton = source.skeleton;
+				this.bindMatrix = source.bindMatrix;
+				this.bindMatrixInverse = source.bindMatrixInverse;
+				this.updateMatrixWorld = source.updateMatrixWorld;
 
 			}
 
@@ -319,7 +319,7 @@
 
 				// Flatten hierarchy
 
-				if ( target.children.length  ) {
+				if ( source.children.length  ) {
 
 					let index = 0;
 					const self = this;
@@ -327,11 +327,11 @@
 					this.children = [];
 					this._children = this.children;
 
-					target.updateMatrixWorld( true );
+					source.updateMatrixWorld( true );
 
-					target.index = -1;
+					source.index = -1;
 
-					target.traverse( object => {
+					source.traverse( object => {
 
 
 						if ( index > 0 ) {
@@ -364,7 +364,7 @@
 
 			} else {
 
-				this.matrixWorld.copy( target.matrixWorld );
+				this.matrixWorld.copy( source.matrixWorld );
 
 			}
 
