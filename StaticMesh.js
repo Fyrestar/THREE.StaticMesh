@@ -19,10 +19,12 @@
 				if ( object.isChild && object.parent.closure )
 					return object.parent._visible;
 
+
 				sphere.radius = object.radius;
 				sphere.center.copy( object );
 
 				object._visible = this.intersectsSphere( sphere );
+
 
 				if ( !object.visible && object.closure ) {
 
@@ -33,6 +35,7 @@
 					this.children = this._children;
 
 				}
+
 
 				return object._visible;
 
@@ -55,9 +58,16 @@
 
 	let id = -1;
 
+	const clamp = THREE.Math.clamp;
 	const p = new THREE.Vector3;
 	const boundingBox = new THREE.Box3;
 	const matrix = new THREE.Matrix4;
+
+	const position = new THREE.Vector3;
+	const scale = new THREE.Vector3;
+	const rotation = new THREE.Euler;
+	const quaternion = new THREE.Quaternion;
+
 
 	THREE.StaticMesh = function( source, parent ) {
 
@@ -227,16 +237,25 @@
 			// Re-encapsulate
 
 			if ( this.closure && this.children.length )
-				this.encapsulate();
+				this.computeBoundingSphere();
 
 
 			// Cache bounding sphere
 
-			const boundingSphere = source.boundingSphere || this.geometry.boundingSphere;
+			this.update();
 
-			this.radius = this.matrixWorld.getMaxScaleOnAxis() * boundingSphere.radius;
+		},
 
-			p.copy( boundingSphere.center ).applyMatrix4( this.matrixWorld );
+		update: function() {
+
+			const object = this.source.boundingSphere ? this.source : this.geometry;
+
+			if ( !object.boundingSphere )
+				object.computeBoundingSphere();
+
+			this.radius = this.matrixWorld.getMaxScaleOnAxis() * object.boundingSphere.radius;
+
+			p.copy( object.boundingSphere.center ).applyMatrix4( this.matrixWorld );
 
 			this.x = p.x;
 			this.y = p.y;
@@ -244,8 +263,32 @@
 
 		},
 
+		composeMatrix: function() {
 
-		encapsulate: function() {
+
+
+			if ( this.children.length ) {
+
+				this.restore();
+
+				this.source.position.set( position._x, position._y, position._z );
+				this.source.quaternion.set( quaternion._x, quaternion._y, quaternion._z, quaternion._w );
+				this.source.scale.set( scale._x, scale._y, scale._z );
+
+				this.save();
+
+			} else {
+
+				this.matrixWorld.compose( position, quaternion, scale );
+
+				this.update();
+
+			}
+
+
+		},
+
+		computeBoundingSphere: function() {
 
 			const source = this.source;
 			const sphere = source.boundingSphere || new THREE.Sphere;
@@ -388,9 +431,279 @@
 
 			}
 
+		},
+
+		add: function() {
+
+			console.error( "Objects can't be added to static meshes" );
+
+		},
+
+		remove: function() {
+
+			console.error( "Objects can't be removed from static meshes" );
+
 		}
 
 	};
+
+
+
+
+	position._x = 0;
+	position._y = 0;
+	position._z = 0;
+
+	Object.defineProperties( position, {
+
+		x: {
+
+			set: function( value ) {
+
+				position._x = value;
+				this.target.composeMatrix();
+
+			},
+
+			get: function() {
+
+				return position._x;
+
+			}
+
+		},
+
+		y: {
+
+			set: function( value ) {
+
+				position._y = value;
+				this.target.composeMatrix();
+
+			},
+
+			get: function() {
+
+				return position._y;
+
+			}
+
+		},
+
+		z: {
+
+			set: function( value ) {
+
+				position._z = value;
+				this.target.composeMatrix();
+
+			},
+
+			get: function() {
+
+				return position._z;
+
+			}
+
+		}
+
+	});
+
+	scale._x = 0;
+	scale._y = 0;
+	scale._z = 0;
+
+	Object.defineProperties( scale, {
+
+		x: {
+
+			set: function( value ) {
+
+				this._x = value;
+				this.target.composeMatrix();
+
+			},
+
+			get: function() {
+
+				return this._x;
+
+			}
+
+		},
+
+		y: {
+
+			set: function( value ) {
+
+				this._y = value;
+				this.target.composeMatrix();
+
+			},
+
+			get: function() {
+
+				return this._y;
+
+			}
+
+		},
+
+		z: {
+
+			set: function( value ) {
+
+				this._z = value;
+				this.target.composeMatrix();
+
+			},
+
+			get: function() {
+
+				return this._z;
+
+			}
+
+		}
+
+
+	});
+
+
+	rotation._onChangeCallback = function() {
+
+		quaternion.setFromEuler( rotation, false );
+
+		if ( this.target )
+			this.target.composeMatrix();
+
+	};
+
+	quaternion._onChangeCallback = function() {
+
+		rotation.setFromQuaternion( quaternion, undefined, false );
+
+		if ( this.target )
+			this.target.composeMatrix();
+
+	};
+
+
+	function applyProperties( object ) {
+
+
+		if ( position.target !== object ) {
+
+			const te = object.matrixWorld.elements;
+
+			position._x = te[12];
+			position._y = te[13];
+			position._z = te[14];
+
+			position.target = object;
+
+		}
+
+		if ( rotation.target !== object ) {
+
+			rotation.target = null;
+
+			rotation.setFromRotationMatrix( object.matrixWorld );
+
+			rotation.x = rotation._x;
+			rotation.y = rotation._y;
+			rotation.z = rotation._z;
+
+			rotation.target = object;
+
+		}
+
+		if ( quaternion.target !== object ) {
+
+			quaternion.target = null;
+
+			quaternion.setFromRotationMatrix( object.matrixWorld );
+
+			quaternion.x = quaternion._x;
+			quaternion.y = quaternion._y;
+			quaternion.z = quaternion._z;
+
+			quaternion.target = object;
+
+		}
+
+		if ( scale.target !== object ) {
+
+			scale.target = null;
+
+			const te = object.matrixWorld.elements;
+
+			scale._x = p.set( te[ 0 ], te[ 1 ], te[ 2 ] ).length();
+			scale._y = p.set( te[ 4 ], te[ 5 ], te[ 6 ] ).length();
+			scale._z = p.set( te[ 8 ], te[ 9 ], te[ 10 ] ).length();
+
+			const det = object.matrixWorld.determinant();
+			if ( det < 0 ) scale.x = - scale.x;
+
+			scale.target = object;
+
+		}
+
+	}
+
+	Object.defineProperties( THREE.StaticMesh.prototype, {
+
+		position: {
+
+			get: function() {
+
+				applyProperties( this );
+
+				return position;
+
+			}
+
+		},
+
+		rotation: {
+
+			get: function() {
+
+				applyProperties( this );
+
+				return rotation;
+
+			}
+
+		},
+
+		quaternion: {
+
+			get: function() {
+
+				applyProperties( this );
+
+				return quaternion;
+
+			}
+
+		},
+
+		scale: {
+
+			get: function() {
+
+				applyProperties( this );
+
+				return scale;
+
+			}
+
+		}
+
+	});
+
+
 
 	THREE.Mesh.prototype.toStatic = function() {
 
