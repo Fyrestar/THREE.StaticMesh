@@ -58,8 +58,9 @@
 
 	let id = -1;
 
-	const clamp = THREE.Math.clamp;
 	const p = new THREE.Vector3;
+	const s = new THREE.Vector3;
+	const q = new THREE.Quaternion;
 	const boundingBox = new THREE.Box3;
 	const matrix = new THREE.Matrix4;
 
@@ -197,7 +198,6 @@
 
 			source.updateMatrixWorld( true );
 
-
 			source.traverse( object => {
 
 				if ( index > -1 ) {
@@ -266,22 +266,37 @@
 		composeMatrix: function() {
 
 
+			if ( this.isChild ) {
 
-			if ( this.children.length ) {
-
-				this.restore();
+				this.parent.restore();
 
 				this.source.position.set( position._x, position._y, position._z );
 				this.source.quaternion.set( quaternion._x, quaternion._y, quaternion._z, quaternion._w );
 				this.source.scale.set( scale._x, scale._y, scale._z );
 
-				this.save();
+				this.parent.save();
 
 			} else {
 
-				this.matrixWorld.compose( position, quaternion, scale );
+				if ( this.children.length ) {
 
-				this.update();
+					this.restore();
+
+					this.matrixWorld.compose( position, quaternion, scale );
+
+					this.source.position.set( position._x, position._y, position._z );
+					this.source.quaternion.set( quaternion._x, quaternion._y, quaternion._z, quaternion._w );
+					this.source.scale.set( scale._x, scale._y, scale._z );
+
+					this.save();
+
+				} else {
+
+					this.matrixWorld.compose( position, quaternion, scale );
+
+					this.update();
+
+				}
 
 			}
 
@@ -448,6 +463,7 @@
 	};
 
 
+	let target;
 
 
 	position._x = 0;
@@ -461,7 +477,7 @@
 			set: function( value ) {
 
 				position._x = value;
-				this.target.composeMatrix();
+				target.composeMatrix();
 
 			},
 
@@ -478,7 +494,7 @@
 			set: function( value ) {
 
 				position._y = value;
-				this.target.composeMatrix();
+				target.composeMatrix();
 
 			},
 
@@ -495,7 +511,7 @@
 			set: function( value ) {
 
 				position._z = value;
-				this.target.composeMatrix();
+				target.composeMatrix();
 
 			},
 
@@ -520,7 +536,7 @@
 			set: function( value ) {
 
 				this._x = value;
-				this.target.composeMatrix();
+				target.composeMatrix();
 
 			},
 
@@ -537,7 +553,7 @@
 			set: function( value ) {
 
 				this._y = value;
-				this.target.composeMatrix();
+				target.composeMatrix();
 
 			},
 
@@ -554,7 +570,7 @@
 			set: function( value ) {
 
 				this._z = value;
-				this.target.composeMatrix();
+				target.composeMatrix();
 
 			},
 
@@ -574,8 +590,8 @@
 
 		quaternion.setFromEuler( rotation, false );
 
-		if ( this.target )
-			this.target.composeMatrix();
+		if ( target )
+			target.composeMatrix();
 
 	};
 
@@ -583,15 +599,52 @@
 
 		rotation.setFromQuaternion( quaternion, undefined, false );
 
-		if ( this.target )
-			this.target.composeMatrix();
+		if ( target )
+			target.composeMatrix();
 
 	};
 
 
 	function applyProperties( object ) {
 
+		if ( target !== object ) {
 
+
+			if ( object.isChild ) {
+
+				const parentMatrix = ( object.parentIndex > -1 ? object.parent._children[ object.parentIndex ] : object.parent ).matrixWorld;
+
+				matrix.getInverse( parentMatrix );
+				matrix.multiply( object.matrixWorld );
+
+			} else {
+
+				matrix.copy( object.matrixWorld );
+
+			}
+
+			matrix.decompose( p, q, s );
+
+			target = null;
+
+			position._x = p.x;
+			position._y = p.y;
+			position._z = p.z;
+
+			quaternion.x = q.x;
+			quaternion.y = q.y;
+			quaternion.z = q.z;
+			quaternion.w = q.w;
+
+			scale._x = s.x;
+			scale._y = s.y;
+			scale._z = s.z;
+
+			target = object;
+
+		}
+
+		/*
 		if ( position.target !== object ) {
 
 			const te = object.matrixWorld.elements;
@@ -600,15 +653,36 @@
 			position._y = te[13];
 			position._z = te[14];
 
+			if ( object.isChild ) {
+
+				const te = ( object.parentIndex > -1 ? object.parent._children[ object.parentIndex ] : object.parent ).matrixWorld.elements;
+
+				position._x -= te[12];
+				position._y -= te[13];
+				position._z -= te[14];
+
+			}
+
 			position.target = object;
 
 		}
 
-		if ( rotation.target !== object ) {
+		if ( quaternion.target !== object ) {
+
 
 			rotation.target = null;
 
-			rotation.setFromRotationMatrix( object.matrixWorld );
+
+
+			rotation.setFromRotationMatrix( matrix );
+
+			quaternion.target = null;
+
+			quaternion.x = quaternion._x;
+			quaternion.y = quaternion._y;
+			quaternion.z = quaternion._z;
+
+			quaternion.target = object;
 
 			rotation.x = rotation._x;
 			rotation.y = rotation._y;
@@ -623,6 +697,14 @@
 			quaternion.target = null;
 
 			quaternion.setFromRotationMatrix( object.matrixWorld );
+
+			rotation.target = null;
+
+			rotation.x = rotation._x;
+			rotation.y = rotation._y;
+			rotation.z = rotation._z;
+
+			rotation.target = object;
 
 			quaternion.x = quaternion._x;
 			quaternion.y = quaternion._y;
@@ -647,7 +729,7 @@
 
 			scale.target = object;
 
-		}
+		}*/
 
 	}
 
