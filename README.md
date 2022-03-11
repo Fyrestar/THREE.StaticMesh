@@ -1,4 +1,4 @@
-![cover-01](https://user-images.githubusercontent.com/28584767/157944592-8391b9a7-cbe6-4c25-aec1-bceaf79640fa.png)
+![StaticMesh-01](https://user-images.githubusercontent.com/28584767/157966574-5d2b1987-2738-41cb-b193-e413e68d8532.jpg)
 
 # THREE.StaticMesh
 Lightweight mesh class for faster rendering, to reduce memory and matrix computations, no core modifications required.
